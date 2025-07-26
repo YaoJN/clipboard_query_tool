@@ -45,17 +45,17 @@ class ClipboardSearcher:
                 "FROM resource_data WHERE file_name LIKE ?", (f"%{keyword}%",))
             resource_data_rows = cursor.fetchall()
 
-            # 查询 rg_4k_files 表
+            # 查询 rg_files 表
             cursor.execute(
-                "SELECT file_name, file_size, file_link FROM rg_4k_files WHERE file_name LIKE ?", (f"%{keyword}%",))
-            rg_4k_files_rows = cursor.fetchall()
+                "SELECT file_type, file_name, file_size, file_link FROM rg_files WHERE file_name LIKE ?", (f"%{keyword}%",))
+            rg_files_rows = cursor.fetchall()
 
-            # 对 rg_4k_files 的数据对齐成统一列格式（8列）
-            aligned_rg_4k_files = []
-            for file_name, file_size, file_link in rg_4k_files_rows:
-                aligned_rg_4k_files.append((
+            # 对 rg_files 的数据对齐成统一列格式（8列）
+            aligned_rg_files = []
+            for file_type, file_name, file_size, file_link in rg_files_rows:
+                aligned_rg_files.append((
                     "",       # disk_no 空
-                    "",       # category2 空
+                    file_type,
                     "",       # file_path 空
                     file_name,
                     file_size,
@@ -69,7 +69,7 @@ class ClipboardSearcher:
             for row in resource_data_rows:
                 aligned_resource_data.append(row + ("",))
 
-            combined = aligned_resource_data + aligned_rg_4k_files
+            combined = aligned_resource_data + aligned_rg_files
             return combined
         except Exception as e:
             return [(f"查询出错：{e}",)]
@@ -111,7 +111,7 @@ class ClipboardSearcher:
 
             # 设置各种tag颜色
             self.tree.tag_configure('contains_4k', background='#cce6ff')  # 浅蓝色
-            self.tree.tag_configure('empty_category2', background='#ccffcc')  # 浅绿色
+            self.tree.tag_configure('empty_category2', background='#808080')  # 标准中灰
             self.tree.tag_configure('contains_mosaic', background='#ffe5cc')  # 浅橙色
             self.tree.tag_configure('contains_av', background='#e5ccff')  # 浅紫色
             self.tree.tag_configure('contains_ido', background='#ffffcc')  # 浅黄色
@@ -126,26 +126,28 @@ class ClipboardSearcher:
                 if self.tree.exists(item):
                     self.tree.item(item, tags=())
                 self.highlighted_cell = None
-        flg_4k = 0
+        # flg_4k = 0
         # 插入数据并给行打标签
         for row in data:
             tags = []
 
             category2 = str(row[1]).upper() if row[1] else ''
+            filepath2 = str(row[2]).upper() if row[2] else ''
+
 
             if '4K' in category2:
-                flg_4k = 1
+                # flg_4k = 1
                 tags.append('contains_4k')
+            elif filepath2 == '':
+                tags.append('empty_category2')
             elif 'MOSAIC' in category2:
                 tags.append('contains_mosaic')
             elif 'AV' in category2:
                 tags.append('contains_av')
             elif 'IDOL' in category2 or 'REBD' in category2:
                 tags.append('contains_ido')
-            else:
-                # 只有不存在4k资源时，才为他加高亮
-                if not flg_4k:
-                    tags.append('empty_category2')
+            # else:
+            #         tags.append('empty_category2')
 
             # is_deleted列如果是 '1' 也加原来黄色高亮
             if len(row) >= 7 and row[6] == '1':
@@ -191,7 +193,7 @@ class ClipboardSearcher:
         disk_no = values[0]
         file_name = values[3]
         if not disk_no or not file_name:
-            return  # rg_4k_files 表无此字段，跳过
+            return  # rg_files 表无此字段，跳过
 
         current_val = values[col_index]
         if current_val not in ('0', '1'):
